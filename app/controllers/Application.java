@@ -18,7 +18,7 @@ public class Application extends Controller {
     private static final int OK = 0;
     private static final int WRONG_PASSWORD = 4;
     private static final int CLIENT_ALREADY_EXISTS = 1;
-    public static final int TECHNICAL_ERROR = 2;
+    private static final int TECHNICAL_ERROR = 2;
 
     @BodyParser.Of(Xml.class)
     public static Result process() {
