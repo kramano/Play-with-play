@@ -1,0 +1,9 @@
+@(resultCode: Integer, balance: java.math.BigDecimal)
+
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+    <result-code>@resultCode</result-code>
+    @if(balance != null) {
+        <extra name="balance">@balance</extra>
+    }
+</response>
