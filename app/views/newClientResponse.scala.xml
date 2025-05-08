@@ -1,6 +1,0 @@
-@(resultCode: Integer)
-
-<?xml version="1.0" encoding="UTF-8"?>
-<response>
-    <result-code>@resultCode</result-code>
-</response>
