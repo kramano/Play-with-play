@@ -1,30 +1,29 @@
 package com.example.qiwitest.controller;
 
-import com.example.qiwitest.dto.RequestDto;
 import com.example.qiwitest.model.Client;
 import com.example.qiwitest.service.ClientService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ApiController.class)
+@SuppressWarnings("removal")
 public class ApiControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private ClientService clientService;
 
     private Client testClient;
@@ -77,7 +76,7 @@ public class ApiControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_XML))
                 .andExpect(xpath("/response/result-code").string("0"))
-                .andExpect(xpath("/response/extra[@name='balance']").string("0.0000"));
+                .andExpect(xpath("/response/extra/extra[@name='balance']").string("0.0000"));
     }
 
     @Test
@@ -128,37 +127,41 @@ public class ApiControllerTest {
     }
 
     private String createClientXml() {
-        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<request>\n" +
-                "        <request-type>CREATE-AGT</request-type>\n" +
-                "        <extra name=\"login\">123456</extra>\n" +
-                "        <extra name=\"password\">pwd</extra>\n" +
-                "</request>";
+        return """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <request>
+                        <request-type>CREATE-AGT</request-type>
+                        <extra name="login">123456</extra>
+                        <extra name="password">pwd</extra>
+                </request>""";
     }
 
     private String getBalanceXml() {
-        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<request>\n" +
-                "        <request-type>GET-BALANCE</request-type>\n" +
-                "        <extra name=\"login\">123456</extra>\n" +
-                "        <extra name=\"password\">pwd</extra>\n" +
-                "</request>";
+        return """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <request>
+                        <request-type>GET-BALANCE</request-type>
+                        <extra name="login">123456</extra>
+                        <extra name="password">pwd</extra>
+                </request>""";
     }
 
     private String unknownRequestXml() {
-        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<request>\n" +
-                "        <request-type>UNKNOWN</request-type>\n" +
-                "        <extra name=\"login\">123456</extra>\n" +
-                "        <extra name=\"password\">pwd</extra>\n" +
-                "</request>";
+        return """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <request>
+                        <request-type>UNKNOWN</request-type>
+                        <extra name="login">123456</extra>
+                        <extra name="password">pwd</extra>
+                </request>""";
     }
 
     private String missingParamXml() {
-        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<request>\n" +
-                "        <extra name=\"login\">123456</extra>\n" +
-                "        <extra name=\"password\">pwd</extra>\n" +
-                "</request>";
+        return """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <request>
+                        <extra name="login">123456</extra>
+                        <extra name="password">pwd</extra>
+                </request>""";
     }
 }
