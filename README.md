@@ -164,3 +164,36 @@ Run the tests:
 ```
 ./gradlew test
 ```
+
+### Integration Tests with TestContainers
+
+The application includes integration tests that use TestContainers to spin up a real PostgreSQL database in a Docker container during test execution. This ensures that the tests run against the same database technology used in production.
+
+Integration tests are available for:
+
+1. **Repository Layer**: Tests CRUD operations against a real PostgreSQL database
+   - Creating and finding clients
+   - Updating client balances
+   - Deleting clients
+
+2. **API Endpoints**: End-to-end tests for the REST API
+   - Creating new clients
+   - Getting client balances
+   - Handling error cases (duplicate clients, wrong passwords, etc.)
+
+To run the integration tests:
+```
+./gradlew test
+```
+
+The integration tests will automatically:
+1. Start a PostgreSQL container
+2. Initialize the database schema using the create.sql script
+3. Run the tests against the containerized database
+4. Shut down the container when tests complete
+
+Requirements:
+- Docker must be installed and running on your machine
+- Your user must have permissions to create Docker containers
+
+Note: If Docker is not available, the integration tests will be automatically skipped rather than failing. This allows the build to succeed even in environments without Docker.
