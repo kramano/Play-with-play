@@ -2,7 +2,6 @@ package com.example.qiwitest.controller;
 
 import com.example.qiwitest.dto.RequestDto;
 import com.example.qiwitest.dto.ResponseDto;
-import com.example.qiwitest.model.Client;
 import com.example.qiwitest.service.ClientService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 
@@ -39,80 +39,70 @@ public class ApiController {
     @PostMapping(value = "/", 
                 consumes = MediaType.APPLICATION_XML_VALUE, 
                 produces = MediaType.APPLICATION_XML_VALUE)
-    public ResponseEntity<ResponseDto> process(@RequestBody RequestDto request) {
+    public Mono<ResponseEntity<ResponseDto>> process(@RequestBody RequestDto request) {
         logger.debug("Incoming request: {}", request);
 
         // Validate request
         String login = request.getExtraValue("login");
         if (login == null) {
             logger.info("Bad request: missing parameter [login]");
-            return ResponseEntity.badRequest().body(null);
+            return Mono.just(ResponseEntity.badRequest().body(null));
         }
 
         String password = request.getExtraValue("password");
         if (password == null) {
             logger.info("Bad request: missing parameter [password]");
-            return ResponseEntity.badRequest().body(null);
+            return Mono.just(ResponseEntity.badRequest().body(null));
         }
 
         String type = request.getRequestType();
         if (type == null) {
             logger.info("Bad request: missing parameter [request-type]");
-            return ResponseEntity.badRequest().body(null);
+            return Mono.just(ResponseEntity.badRequest().body(null));
         }
 
-        ResponseDto response;
+        Mono<ResponseDto> responseMono;
         if (type.equals(CREATE_AGT)) {
-            response = createClient(login, password);
+            responseMono = createClient(login, password);
         } else if (type.equals(GET_BALANCE)) {
-            response = getBalance(login, password);
+            responseMono = getBalance(login, password);
         } else {
             logger.info("Bad request: unknown request type [{}]", type);
-            return ResponseEntity.badRequest().body(null);
+            return Mono.just(ResponseEntity.badRequest().body(null));
         }
 
-        return ResponseEntity.ok(response);
+        return responseMono.map(ResponseEntity::ok);
     }
 
-    private ResponseDto getBalance(String login, String password) {
-        Client client;
-        try {
-            client = clientService.findByLogin(login);
-        } catch (Exception e) {
-            return new ResponseDto(TECHNICAL_ERROR);
-        }
-
-        if (client == null) {
-            return new ResponseDto(CLIENT_DOES_NOT_EXIST);
-        } else {
-            if (clientService.isPasswordCorrect(client, password)) {
-                ResponseDto response = new ResponseDto(OK);
-                BigDecimal balance = clientService.getBalance(client);
-                response.addExtra("balance", balance.toString());
-                return response;
-            } else {
-                return new ResponseDto(WRONG_PASSWORD);
-            }
-        }
+    private Mono<ResponseDto> getBalance(String login, String password) {
+        return clientService.findByLogin(login)
+            .flatMap(client -> 
+                clientService.isPasswordCorrect(Mono.just(client), password)
+                    .flatMap(isCorrect -> {
+                        if (isCorrect) {
+                            return clientService.getBalance(Mono.just(client))
+                                .map(balance -> {
+                                    ResponseDto response = new ResponseDto(OK);
+                                    response.addExtra("balance", balance.toString());
+                                    return response;
+                                });
+                        } else {
+                            return Mono.just(new ResponseDto(WRONG_PASSWORD));
+                        }
+                    })
+            )
+            .switchIfEmpty(Mono.just(new ResponseDto(CLIENT_DOES_NOT_EXIST)))
+            .onErrorReturn(new ResponseDto(TECHNICAL_ERROR));
     }
 
-    private ResponseDto createClient(String login, String password) {
-        Client client;
-        try {
-            client = clientService.findByLogin(login);
-        } catch (Exception e) {
-            return new ResponseDto(TECHNICAL_ERROR);
-        }
-
-        if (client == null) {
-            try {
-                clientService.createClient(login, password);
-                return new ResponseDto(OK);
-            } catch (Exception e) {
-                return new ResponseDto(TECHNICAL_ERROR);
-            }
-        } else {
-            return new ResponseDto(CLIENT_ALREADY_EXISTS);
-        }
+    private Mono<ResponseDto> createClient(String login, String password) {
+        return clientService.findByLogin(login)
+            .flatMap(client -> Mono.just(new ResponseDto(CLIENT_ALREADY_EXISTS)))
+            .switchIfEmpty(
+                clientService.createClient(login, password)
+                    .map(client -> new ResponseDto(OK))
+                    .onErrorReturn(new ResponseDto(TECHNICAL_ERROR))
+            )
+            .onErrorReturn(new ResponseDto(TECHNICAL_ERROR));
     }
 }

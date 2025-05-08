@@ -1,6 +1,102 @@
 # Qiwi Test Application
 
-This application has been migrated from Play Framework to Spring Boot.
+This application provides a simple client management system with balance tracking functionality. It exposes a RESTful API that accepts and returns XML data.
+
+## Functionality
+
+### API Endpoints
+
+The application exposes a single endpoint:
+
+- **POST /** - Processes all client operations
+
+### Operations
+
+The API supports the following operations:
+
+1. **CREATE-AGT** - Creates a new client account
+   - Required parameters: `login`, `password`
+   - Response: Result code indicating success or failure
+
+2. **GET-BALANCE** - Retrieves the balance for a client
+   - Required parameters: `login`, `password`
+   - Response: Result code and balance (if successful)
+
+### Result Codes
+
+- **0** - Success
+- **1** - Client already exists (for CREATE-AGT)
+- **2** - Technical error
+- **3** - Client does not exist
+- **4** - Wrong password
+
+### Request/Response Format
+
+All requests and responses use XML format.
+
+#### Request Format
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<request>
+    <request-type>OPERATION_TYPE</request-type>
+    <extra name="login">LOGIN_VALUE</extra>
+    <extra name="password">PASSWORD_VALUE</extra>
+</request>
+```
+
+#### Response Format
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+    <result-code>RESULT_CODE</result-code>
+    <extra name="balance">BALANCE_VALUE</extra> <!-- Only for GET-BALANCE -->
+</response>
+```
+
+### Examples
+
+#### Creating a New Client
+
+Request:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<request>
+    <request-type>CREATE-AGT</request-type>
+    <extra name="login">user123</extra>
+    <extra name="password">securepass</extra>
+</request>
+```
+
+Success Response:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+    <result-code>0</result-code>
+</response>
+```
+
+#### Getting Client Balance
+
+Request:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<request>
+    <request-type>GET-BALANCE</request-type>
+    <extra name="login">user123</extra>
+    <extra name="password">securepass</extra>
+</request>
+```
+
+Success Response:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+    <result-code>0</result-code>
+    <extra name="balance">0.0000</extra>
+</response>
+```
 
 ## Migration Details
 
@@ -11,10 +107,12 @@ This application has been migrated from Play Framework to Spring Boot.
 - MySQL database
 
 ### New Stack
-- Spring Boot 3.2.0
+- Spring Boot 3.4.5
 - Java 23
 - Gradle build tool
-- MySQL database (same as before)
+- PostgreSQL database
+- Spring WebFlux (reactive programming)
+- R2DBC (reactive database connectivity)
 
 ## Key Changes
 
@@ -23,13 +121,14 @@ This application has been migrated from Play Framework to Spring Boot.
    - Moved from SBT to Gradle build system
 
 2. **Model Layer**:
-   - Replaced Play model with JPA entity
-   - Added Spring Data JPA repository
-   - Added service layer for business logic
+   - Replaced Play model with R2DBC entity
+   - Added Spring Data R2DBC repository
+   - Added reactive service layer for business logic
 
 3. **Controller Layer**:
-   - Replaced Play controller with Spring RestController
-   - Used Spring's RequestBody and ResponseEntity
+   - Replaced Play controller with Spring WebFlux controller
+   - Used reactive programming model with Mono/Flux
+   - Used Spring's RequestBody and ResponseEntity with reactive types
 
 4. **View Layer**:
    - Replaced Play Scala templates with Jackson XML serialization/deserialization
@@ -40,18 +139,24 @@ This application has been migrated from Play Framework to Spring Boot.
    - Configured database connection, logging, etc.
 
 6. **Testing**:
-   - Replaced Play tests with Spring Boot tests
-   - Added unit tests for repository, service, and controller layers
-   - Used H2 in-memory database for testing
+   - Replaced Play tests with Spring Boot WebFlux tests
+   - Added reactive unit tests for repository, service, and controller layers
+   - Used H2 in-memory database with R2DBC for testing
+   - Used StepVerifier for testing reactive streams
 
 ## Running the Application
 
 1. Make sure you have Java 23 installed
-2. Make sure you have MySQL running with a database named "qiwi"
-3. Run the application:
+2. Use Docker Compose to start the application and PostgreSQL database:
+   ```
+   docker-compose up
+   ```
+
+   Or run locally:
    ```
    ./gradlew bootRun
    ```
+   (requires PostgreSQL running with a database named "qiwi")
 
 ## Testing the Application
 

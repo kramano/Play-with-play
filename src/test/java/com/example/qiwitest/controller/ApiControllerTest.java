@@ -4,25 +4,37 @@ import com.example.qiwitest.model.Client;
 import com.example.qiwitest.service.ClientService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(ApiController.class)
+@WebFluxTest(controllers = ApiController.class)
+@Import(ApiControllerTest.TestConfig.class)
 public class ApiControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Configuration
+    static class TestConfig {
+        @Bean
+        public ClientService clientService() {
+            return Mockito.mock(ClientService.class);
+        }
+    }
 
-    @MockitoBean
+    @Autowired
+    private WebTestClient webTestClient;
+
+    @Autowired
     private ClientService clientService;
 
     private Client testClient;
@@ -33,96 +45,115 @@ public class ApiControllerTest {
     }
 
     @Test
-    public void shouldCreateNewClientSuccess() throws Exception {
+    public void shouldCreateNewClientSuccess() {
         // Arrange
-        when(clientService.findByLogin("123456")).thenReturn(null);
-        when(clientService.createClient("123456", "pwd")).thenReturn(testClient);
+        when(clientService.findByLogin("123456")).thenReturn(Mono.empty());
+        when(clientService.createClient("123456", "pwd")).thenReturn(Mono.just(testClient));
 
         // Act & Assert
-        mockMvc.perform(post("/")
+        webTestClient.post()
+                .uri("/")
                 .contentType(MediaType.APPLICATION_XML)
-                .content(createClientXml()))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_XML))
-                .andExpect(xpath("/response/result-code").string("0"));
+                .bodyValue(createClientXml())
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.APPLICATION_XML)
+                .expectBody()
+                .xpath("/response/result-code").isEqualTo("0");
     }
 
     @Test
-    public void shouldNotCreateNewClientWithExistingLogin() throws Exception {
+    public void shouldNotCreateNewClientWithExistingLogin() {
         // Arrange
-        when(clientService.findByLogin("123456")).thenReturn(testClient);
+        when(clientService.findByLogin("123456")).thenReturn(Mono.just(testClient));
 
         // Act & Assert
-        mockMvc.perform(post("/")
+        webTestClient.post()
+                .uri("/")
                 .contentType(MediaType.APPLICATION_XML)
-                .content(createClientXml()))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_XML))
-                .andExpect(xpath("/response/result-code").string("1"));
+                .bodyValue(createClientXml())
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.APPLICATION_XML)
+                .expectBody()
+                .xpath("/response/result-code").isEqualTo("1");
     }
 
     @Test
-    public void shouldReturnBalanceForExistingClient() throws Exception {
+    public void shouldReturnBalanceForExistingClient() {
         // Arrange
-        when(clientService.findByLogin("123456")).thenReturn(testClient);
-        when(clientService.isPasswordCorrect(testClient, "pwd")).thenReturn(true);
-        when(clientService.getBalance(testClient)).thenReturn(new BigDecimal("0.0000"));
+        when(clientService.findByLogin("123456")).thenReturn(Mono.just(testClient));
+        when(clientService.isPasswordCorrect(any(Mono.class), any(String.class))).thenReturn(Mono.just(true));
+        when(clientService.getBalance(any(Mono.class))).thenReturn(Mono.just(new BigDecimal("0.0000")));
 
         // Act & Assert
-        mockMvc.perform(post("/")
+        webTestClient.post()
+                .uri("/")
                 .contentType(MediaType.APPLICATION_XML)
-                .content(getBalanceXml()))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_XML))
-                .andExpect(xpath("/response/result-code").string("0"))
-                .andExpect(xpath("/response/extra/extra[@name='balance']").string("0.0000"));
+                .bodyValue(getBalanceXml())
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.APPLICATION_XML)
+                .expectBody()
+                .xpath("/response/result-code").isEqualTo("0")
+                .xpath("/response/extra/extra[@name='balance']").isEqualTo("0.0000");
     }
 
     @Test
-    public void shouldReturnErrorForNoClient() throws Exception {
+    public void shouldReturnErrorForNoClient() {
         // Arrange
-        when(clientService.findByLogin("123456")).thenReturn(null);
+        when(clientService.findByLogin("123456")).thenReturn(Mono.empty());
 
         // Act & Assert
-        mockMvc.perform(post("/")
+        webTestClient.post()
+                .uri("/")
                 .contentType(MediaType.APPLICATION_XML)
-                .content(getBalanceXml()))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_XML))
-                .andExpect(xpath("/response/result-code").string("3"));
+                .bodyValue(getBalanceXml())
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.APPLICATION_XML)
+                .expectBody()
+                .xpath("/response/result-code").isEqualTo("3");
     }
 
     @Test
-    public void shouldReturnErrorForWrongPassword() throws Exception {
+    public void shouldReturnErrorForWrongPassword() {
         // Arrange
-        when(clientService.findByLogin("123456")).thenReturn(testClient);
-        when(clientService.isPasswordCorrect(testClient, "pwd")).thenReturn(false);
+        when(clientService.findByLogin("123456")).thenReturn(Mono.just(testClient));
+        when(clientService.isPasswordCorrect(any(Mono.class), any(String.class))).thenReturn(Mono.just(false));
 
         // Act & Assert
-        mockMvc.perform(post("/")
+        webTestClient.post()
+                .uri("/")
                 .contentType(MediaType.APPLICATION_XML)
-                .content(getBalanceXml()))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_XML))
-                .andExpect(xpath("/response/result-code").string("4"));
+                .bodyValue(getBalanceXml())
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.APPLICATION_XML)
+                .expectBody()
+                .xpath("/response/result-code").isEqualTo("4");
     }
 
     @Test
-    public void shouldReturnErrorForUnknownType() throws Exception {
+    public void shouldReturnErrorForUnknownType() {
         // Act & Assert
-        mockMvc.perform(post("/")
+        webTestClient.post()
+                .uri("/")
                 .contentType(MediaType.APPLICATION_XML)
-                .content(unknownRequestXml()))
-                .andExpect(status().isBadRequest());
+                .bodyValue(unknownRequestXml())
+                .exchange()
+                .expectStatus().isBadRequest();
     }
 
     @Test
-    public void shouldReturnErrorForMissingParameter() throws Exception {
+    public void shouldReturnErrorForMissingParameter() {
         // Act & Assert
-        mockMvc.perform(post("/")
+        webTestClient.post()
+                .uri("/")
                 .contentType(MediaType.APPLICATION_XML)
-                .content(missingParamXml()))
-                .andExpect(status().isBadRequest());
+                .bodyValue(missingParamXml())
+                .exchange()
+                .expectStatus().isBadRequest();
     }
 
     private String createClientXml() {

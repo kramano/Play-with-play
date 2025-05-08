@@ -3,21 +3,16 @@ package com.example.qiwitest.repository;
 import com.example.qiwitest.model.Client;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.boot.test.autoconfigure.data.r2dbc.DataR2dbcTest;
 import org.springframework.test.context.ActiveProfiles;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-@DataJpaTest
+@DataR2dbcTest
 @ActiveProfiles("test")
 public class ClientRepositoryTest {
-
-    @Autowired
-    private TestEntityManager entityManager;
 
     @Autowired
     private ClientRepository clientRepository;
@@ -26,25 +21,26 @@ public class ClientRepositoryTest {
     public void shouldCreateAndFindClient() {
         // Create a client
         Client client = new Client("max", "pwd", BigDecimal.ZERO);
-        entityManager.persist(client);
-        entityManager.flush();
 
-        // Find the client by login
-        Optional<Client> found = clientRepository.findByLogin("max");
-        
-        // Verify the client was found and has the correct properties
-        assertThat(found).isPresent();
-        assertThat(found.get().getLogin()).isEqualTo("max");
-        assertThat(found.get().getPassword()).isEqualTo("pwd");
-        assertThat(found.get().getBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+        // Save the client and then find it by login
+        StepVerifier.create(clientRepository.save(client)
+                .then(clientRepository.findByLogin("max")))
+            .assertNext(found -> {
+                // Verify the client was found and has the correct properties
+                assert found.getLogin().equals("max");
+                assert found.getPassword().equals("pwd");
+                assert found.getBalance().compareTo(BigDecimal.ZERO) == 0;
+            })
+            .verifyComplete();
     }
 
     @Test
     public void shouldNotFindClientInEmptyTable() {
         // Try to find a client that doesn't exist
-        Optional<Client> notFound = clientRepository.findByLogin("max");
-        
+        Mono<Client> notFound = clientRepository.findByLogin("max");
+
         // Verify the client was not found
-        assertThat(notFound).isEmpty();
+        StepVerifier.create(notFound)
+            .verifyComplete(); // Empty Mono completes without emitting any value
     }
 }

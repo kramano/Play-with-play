@@ -8,11 +8,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -35,58 +35,74 @@ public class ClientServiceTest {
     @Test
     public void shouldFindClientByLogin() {
         // Arrange
-        when(clientRepository.findByLogin("max")).thenReturn(Optional.of(testClient));
+        when(clientRepository.findByLogin("max")).thenReturn(Mono.just(testClient));
 
-        // Act
-        Client found = clientService.findByLogin("max");
+        // Act & Assert
+        StepVerifier.create(clientService.findByLogin("max"))
+            .expectNext(testClient)
+            .verifyComplete();
 
-        // Assert
-        assertThat(found).isNotNull();
-        assertThat(found.getLogin()).isEqualTo("max");
-        assertThat(found.getPassword()).isEqualTo("pwd");
         verify(clientRepository, times(1)).findByLogin("max");
     }
 
     @Test
-    public void shouldReturnNullWhenClientNotFound() {
+    public void shouldReturnEmptyMonoWhenClientNotFound() {
         // Arrange
-        when(clientRepository.findByLogin("nonexistent")).thenReturn(Optional.empty());
+        when(clientRepository.findByLogin("nonexistent")).thenReturn(Mono.empty());
 
-        // Act
-        Client found = clientService.findByLogin("nonexistent");
+        // Act & Assert
+        StepVerifier.create(clientService.findByLogin("nonexistent"))
+            .verifyComplete();
 
-        // Assert
-        assertThat(found).isNull();
         verify(clientRepository, times(1)).findByLogin("nonexistent");
     }
 
     @Test
     public void shouldCreateClient() {
         // Arrange
-        when(clientRepository.save(any(Client.class))).thenReturn(testClient);
+        when(clientRepository.save(any(Client.class))).thenReturn(Mono.just(testClient));
 
-        // Act
-        Client created = clientService.createClient("max", "pwd");
+        // Act & Assert
+        StepVerifier.create(clientService.createClient("max", "pwd"))
+            .expectNext(testClient)
+            .verifyComplete();
 
-        // Assert
-        assertThat(created).isNotNull();
-        assertThat(created.getLogin()).isEqualTo("max");
-        assertThat(created.getPassword()).isEqualTo("pwd");
         verify(clientRepository, times(1)).save(any(Client.class));
     }
 
     @Test
     public void shouldCheckPasswordCorrectly() {
+        // Arrange
+        Mono<Client> clientMono = Mono.just(testClient);
+        Mono<Client> emptyMono = Mono.empty();
+
         // Act & Assert
-        assertThat(clientService.isPasswordCorrect(testClient, "pwd")).isTrue();
-        assertThat(clientService.isPasswordCorrect(testClient, "wrong")).isFalse();
-        assertThat(clientService.isPasswordCorrect(null, "pwd")).isFalse();
+        StepVerifier.create(clientService.isPasswordCorrect(clientMono, "pwd"))
+            .expectNext(true)
+            .verifyComplete();
+
+        StepVerifier.create(clientService.isPasswordCorrect(clientMono, "wrong"))
+            .expectNext(false)
+            .verifyComplete();
+
+        StepVerifier.create(clientService.isPasswordCorrect(emptyMono, "pwd"))
+            .expectNext(false)
+            .verifyComplete();
     }
 
     @Test
     public void shouldGetBalance() {
+        // Arrange
+        Mono<Client> clientMono = Mono.just(testClient);
+        Mono<Client> emptyMono = Mono.empty();
+
         // Act & Assert
-        assertThat(clientService.getBalance(testClient)).isEqualByComparingTo(BigDecimal.ZERO);
-        assertThat(clientService.getBalance(null)).isNull();
+        StepVerifier.create(clientService.getBalance(clientMono))
+            .expectNext(BigDecimal.ZERO)
+            .verifyComplete();
+
+        StepVerifier.create(clientService.getBalance(emptyMono))
+            .expectComplete()
+            .verify();
     }
 }
