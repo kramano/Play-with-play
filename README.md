@@ -1,6 +1,6 @@
-# Qiwi Test Application
-
+# Test Application
 This application provides a simple client management system with balance tracking functionality. It exposes a RESTful API that accepts and returns XML data.
+I implemented this using Play Framework long time ago, and now refactored to use modern stack (Spring Boot etc)
 
 ## Functionality
 
